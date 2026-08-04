@@ -18,7 +18,6 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = 'https://lqbbpkgdlheashkskfxt.supabase.co';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxYmJwa2dkbGhlYXNoa3NrZnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3NDQzNDcsImV4cCI6MjEwMTMyMDM0N30.WqqXKXnPQfAhKsFUnKvb4GNHQ__MOfP2_fE6VXKIU20';
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function seed() {
@@ -53,8 +52,8 @@ async function seed() {
   } else {
     console.log(
       '⚠️  Account created but email confirmation may be pending.\n' +
-        '   Disable email confirmation in Supabase Auth settings and try again,\n' +
-        '   OR manually create the user from the Supabase Dashboard.'
+      '   Disable email confirmation in Supabase Auth settings and try again,\n' +
+      '   OR manually create the user from the Supabase Dashboard.'
     );
   }
 }

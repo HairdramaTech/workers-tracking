@@ -1,13 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, X, ChevronDown, Check, AlertCircle, RefreshCw, Search } from 'lucide-react';
+import { Plus, X, ChevronDown, Check, AlertCircle, RefreshCw, Search, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = 'pending' | 'in_progress' | 'under_review' | 'completed';
+type WorkOrderStatus = 'open' | 'completed';
 
 interface WorkType { id: string; name: string; }
 interface Worker   { id: string; name: string; phone: string; }
+interface WorkOrder {
+  id: string;
+  sku: string | null;
+  total_quantity: number;
+  date: string;
+  status: WorkOrderStatus;
+  work_types: WorkType | null;
+}
 interface Assignment {
   id: string;
   work_order_id: string;
@@ -18,7 +27,7 @@ interface Assignment {
   submitted_at: string | null;
   approved_at: string | null;
   created_at: string;
-  work_orders: { id: string; sku: string | null; total_quantity: number; date: string; work_types: WorkType | null; } | null;
+  work_orders: WorkOrder | null;
   workers: Pick<Worker, 'id' | 'name' | 'phone'> | null;
 }
 
@@ -32,8 +41,10 @@ const COLUMNS: { key: Status; label: string; color: string; bg: string }[] = [
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function TodayWork() {
   const [assignments,  setAssignments]  = useState<Assignment[]>([]);
+  const [workOrders,   setWorkOrders]   = useState<WorkOrder[]>([]);
   const [workTypes,    setWorkTypes]    = useState<WorkType[]>([]);
   const [workers,      setWorkers]      = useState<Worker[]>([]);
+  const [activeWorkerIds, setActiveWorkerIds] = useState<string[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState('');
   const [search,       setSearch]       = useState('');
@@ -75,17 +86,29 @@ export default function TodayWork() {
     setLoading(true); setError('');
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [{ data: aData, error: aErr }, { data: wtData }, { data: wData }] = await Promise.all([
+      const [
+        { data: aData, error: aErr },
+        { data: wtData },
+        { data: wData },
+        { data: woData },
+        { data: attData }
+      ] = await Promise.all([
         supabase.from('work_assignments').select('*, work_orders(*, work_types(*)), workers(id,name,phone)').order('created_at', { ascending: false }),
         supabase.from('work_types').select('*').order('name'),
         supabase.from('workers').select('id,name,phone').order('name'),
+        supabase.from('work_orders').select('*, work_types(*)').eq('date', today).order('created_at', { ascending: false }),
+        supabase.from('attendance').select('worker_id').eq('date', today).is('check_out_time', null)
       ]);
+
       if (aErr) throw aErr;
-      // Only show today's orders
-      const todayOnly = (aData ?? []).filter((a: any) => a.work_orders?.date === today);
-      setAssignments(todayOnly);
+      
+      // Only show today's orders/assignments
+      const todayAssignments = (aData ?? []).filter((a: any) => a.work_orders?.date === today);
+      setAssignments(todayAssignments);
       setWorkTypes(wtData ?? []);
       setWorkers(wData ?? []);
+      setWorkOrders((woData ?? []) as WorkOrder[]);
+      setActiveWorkerIds((attData ?? []).map(a => a.worker_id));
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
@@ -93,14 +116,21 @@ export default function TodayWork() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ── Filters ────────────────────────────────────────────────────────────────
-  const filtered = assignments.filter(a => {
+  const filteredAssignments = assignments.filter(a => {
     const q = search.toLowerCase();
     return !q || a.work_orders?.work_types?.name?.toLowerCase().includes(q)
       || a.workers?.name?.toLowerCase().includes(q)
       || (a.work_orders?.sku ?? '').toLowerCase().includes(q);
   });
-  const byStatus = (s: Status) => filtered.filter(a => a.status === s);
+  
+  const byStatus = (s: Status) => filteredAssignments.filter(a => a.status === s);
   const underReview = byStatus('under_review');
+  const openWorkOrders = workOrders.filter(wo => wo.status === 'open');
+
+  // Computed helper for total assigned quantity for a work order
+  const getAssignedQty = (woId: string) => {
+    return assignments.filter(a => a.work_order_id === woId).reduce((sum, a) => sum + a.assigned_quantity, 0);
+  };
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const saveWorkType = async () => {
@@ -111,15 +141,19 @@ export default function TodayWork() {
     fetchAll();
   };
 
-  const saveWorkOrder = async () => {
+  const saveWorkOrder = async (assignNow: boolean) => {
     if (!orderType || !orderQty) return;
     setSavingOrder(true);
     const { data } = await supabase.from('work_orders').insert([{
       work_type_id: orderType, sku: orderSku.trim() || null,
       total_quantity: parseInt(orderQty), date: new Date().toISOString().split('T')[0],
+      status: 'open'
     }]).select().single();
+    
     setSavingOrder(false); setOrderType(''); setOrderSku(''); setOrderQty(''); setShowAddOrder(false);
-    if (data) setShowAssign({ id: data.id, total_qty: data.total_quantity, already_assigned: 0 });
+    if (data && assignNow) {
+      setShowAssign({ id: data.id, total_qty: data.total_quantity, already_assigned: 0 });
+    }
     fetchAll();
   };
 
@@ -168,6 +202,11 @@ export default function TodayWork() {
     setSelected(null); fetchAll();
   };
 
+  const completeWorkOrder = async (id: string) => {
+    await supabase.from('work_orders').update({ status: 'completed' }).eq('id', id);
+    fetchAll();
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '1rem' }}>
@@ -183,6 +222,8 @@ export default function TodayWork() {
       <button className="btn btn-primary" onClick={fetchAll}>Retry</button>
     </div>
   );
+
+  const clockedInWorkers = workers.filter(w => activeWorkerIds.includes(w.id));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -211,7 +252,7 @@ export default function TodayWork() {
       {/* ── Stats bar ─────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '1rem' }} className="stats-grid">
         {[
-          { label: 'Total',       count: filtered.length,              color: 'var(--color-brand-primary)' },
+          { label: 'Total',       count: filteredAssignments.length,   color: 'var(--color-brand-primary)' },
           { label: 'Pending',     count: byStatus('pending').length,   color: '#f59e0b' },
           { label: 'In Progress', count: byStatus('in_progress').length, color: '#3b82f6' },
           { label: 'Review',      count: underReview.length,           color: '#8b5cf6' },
@@ -223,6 +264,57 @@ export default function TodayWork() {
           </div>
         ))}
       </div>
+
+      {/* ── Added Work (Open Orders) ──────────────────────────────── */}
+      {openWorkOrders.length > 0 && (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 0.75rem', color: 'var(--color-text-primary)' }}>Added Work</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {openWorkOrders.map(wo => {
+              const assigned = getAssignedQty(wo.id);
+              const remaining = wo.total_quantity - assigned;
+              const isFullyAssigned = remaining <= 0;
+              return (
+                <div key={wo.id} style={{ 
+                  background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: '0.75rem', 
+                  padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' 
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: 'var(--color-text-primary)' }}>{wo.work_types?.name}</p>
+                      {wo.sku && (
+                        <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'var(--color-brand-primary)', background: 'rgba(59,130,246,0.1)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                          {wo.sku}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                      Total: <strong>{wo.total_quantity}</strong> • Assigned: <strong>{assigned}</strong> • Remaining: <strong style={{ color: isFullyAssigned ? 'var(--color-success)' : 'inherit' }}>{remaining}</strong>
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={() => setShowAssign({ id: wo.id, total_qty: wo.total_quantity, already_assigned: assigned })}
+                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }}
+                      disabled={isFullyAssigned}
+                    >
+                      <Briefcase size={14} /> Assign to Workers
+                    </button>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={() => completeWorkOrder(wo.id)}
+                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem', borderColor: 'var(--color-success)', color: 'var(--color-success)' }}
+                    >
+                      <Check size={14} /> Mark Completed
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Search ────────────────────────────────────────────────── */}
       <div style={{ position: 'relative', marginBottom: '1rem' }}>
@@ -383,9 +475,14 @@ export default function TodayWork() {
             <label className="input-label">Total Quantity</label>
             <input className="input-field" type="number" min={1} placeholder="e.g. 1000" value={orderQty} onChange={e => setOrderQty(e.target.value)} />
           </div>
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={saveWorkOrder} disabled={savingOrder || !orderType || !orderQty}>
-            {savingOrder ? 'Creating…' : 'Create & Assign →'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+            <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => saveWorkOrder(false)} disabled={savingOrder || !orderType || !orderQty}>
+              {savingOrder ? 'Saving…' : 'Save & Assign Later'}
+            </button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => saveWorkOrder(true)} disabled={savingOrder || !orderType || !orderQty}>
+              {savingOrder ? 'Saving…' : 'Save & Assign Now'}
+            </button>
+          </div>
         </Modal>
       )}
 
@@ -393,7 +490,7 @@ export default function TodayWork() {
         <Modal title="Assign Work to Workers" onClose={() => { setShowAssign(null); setAssignRows([{ id: Date.now(), worker_id: '', qty: '' }]); setAssignError(''); }}>
           {/* Column headers */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 36px', gap: '0.5rem', marginBottom: '0.5rem', padding: '0 0.25rem' }}>
-            <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>Worker</p>
+            <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>Worker (Clocked In)</p>
             <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)', textAlign: 'center' }}>Qty</p>
             <span />
           </div>
@@ -444,7 +541,8 @@ export default function TodayWork() {
                         autoFocus={idx === 0}
                       >
                         <option value="">Select worker…</option>
-                        {workers
+                        {clockedInWorkers.length === 0 && <option value="" disabled>No workers are currently clocked in</option>}
+                        {clockedInWorkers
                           .filter(w => !assignRows.some(r => r.id !== row.id && r.worker_id === w.id))
                           .map(w => <option key={w.id} value={w.id}>{w.name} · {w.phone}</option>)
                         }
@@ -482,7 +580,7 @@ export default function TodayWork() {
           <button
             className="btn btn-outline"
             onClick={addAssignRow}
-            disabled={assignRows.length >= workers.length}
+            disabled={assignRows.length >= clockedInWorkers.length}
             style={{ width: '100%', fontSize: '0.8rem', marginBottom: '0.875rem', borderStyle: 'dashed' }}
           >
             <Plus size={14} /> Add Another Worker
