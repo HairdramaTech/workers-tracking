@@ -367,36 +367,31 @@ export default function TodayWork() {
         </div>
       )}
 
-      {/* ── Status Tabs (top on desktop, bottom on mobile via CSS) ─── */}
-      <div className="status-tab-bar">
+      {/* ── Mobile: Status tabs ────────────────────────────────────── */}
+      <div className="mobile-status-tabs" style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', marginBottom: '0.875rem', paddingBottom: '4px' }}>
         {COLUMNS.map(col => {
           const count = byStatus(col.key).length;
           const active = mobileTab === col.key;
           return (
             <button key={col.key} onClick={() => setMobileTab(col.key)}
               style={{
-                flex: 1, padding: '0.5rem 0.5rem', border: 'none',
-                background: 'transparent',
-                color: active ? col.color : 'var(--color-text-muted)',
-                cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                alignItems: 'center', gap: '0.2rem', transition: 'color 0.15s',
-                borderBottom: `2.5px solid ${active ? col.color : 'transparent'}`,
-                position: 'relative',
+                flexShrink: 0, padding: '0.35rem 0.75rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: active ? 700 : 500,
+                border: `1px solid ${active ? col.color : 'var(--color-border)'}`,
+                background: active ? `${col.color}20` : 'transparent',
+                color: active ? col.color : 'var(--color-text-secondary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
               }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: active ? 700 : 500, whiteSpace: 'nowrap' }}>{col.label}</span>
-              <span style={{
-                fontSize: '0.6rem', fontWeight: 700,
-                background: active ? col.color : 'var(--color-border)',
-                color: active ? 'white' : 'var(--color-text-muted)',
-                borderRadius: '100px', padding: '0 0.35rem', lineHeight: '1.5',
-              }}>{count}</span>
+              {col.label}
+              <span style={{ background: active ? col.color : 'var(--color-border)', color: active ? 'white' : 'var(--color-text-muted)', borderRadius: '100px', padding: '0 0.35rem', fontSize: '0.65rem', fontWeight: 700 }}>
+                {count}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* ── Cards (one column, filtered by active tab) ────────────── */}
-      <div className="status-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', flex: 1 }}>
+      {/* ── Mobile cards ──────────────────────────────────────────── */}
+      <div className="mobile-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', flex: 1 }}>
         {byStatus(mobileTab).length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             No {COLUMNS.find(c => c.key === mobileTab)?.label} tasks today
@@ -409,8 +404,8 @@ export default function TodayWork() {
         )}
       </div>
 
-      {/* ── Desktop: 4-column kanban (hidden when tab mode active) ── */}
-      <div className="desktop-kanban" style={{ display: 'none', gap: '0.875rem', flex: 1, overflowX: 'auto', paddingBottom: '0.5rem' }}>
+      {/* ── Desktop: 4-column kanban ──────────────────────────────── */}
+      <div className="desktop-kanban" style={{ display: 'flex', gap: '0.875rem', flex: 1, overflowX: 'auto', paddingBottom: '0.5rem' }}>
         {COLUMNS.map(col => {
           const cards = byStatus(col.key);
           return (
@@ -652,49 +647,16 @@ export default function TodayWork() {
       )}
 
       <style>{`
-        /* ── Status tab bar ─────────────────────────────────────── */
-        .status-tab-bar {
-          display: flex;
-          border-bottom: 1px solid var(--color-border);
-          margin-bottom: 1rem;
-          background: var(--color-bg-secondary);
-          border-radius: 0.75rem 0.75rem 0 0;
-          overflow: hidden;
-        }
-        .status-cards { margin-bottom: 0; }
-
-        /* Mobile: move tab bar to fixed bottom (above the sticky nav) */
-        @media (max-width: 768px) {
-          .status-tab-bar {
-            position: fixed;
-            bottom: 56px;        /* height of the ManagerLayout mobile nav */
-            left: 0; right: 0;
-            z-index: 25;
-            border-radius: 0;
-            border-top: 1px solid var(--color-border);
-            border-bottom: none;
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-          }
-          .status-tab-bar button { border-bottom: none !important; border-top: 2.5px solid transparent; }
-          .status-tab-bar button[style*="border-bottom: 2.5px solid"] {
-            border-bottom: none !important;
-          }
-          .status-cards { padding-bottom: 6.5rem; } /* space for bottom tabs + nav */
-          .mobile-fab { bottom: 8rem !important; }  /* push FAB up too */
-        }
-
-        /* Desktop: hide 4-col kanban, show tab+cards view */
         @media (min-width: 769px) {
-          .desktop-kanban  { display: none !important; }
-          .mobile-fab      { display: none !important; }
-          .stats-grid      { grid-template-columns: repeat(5, 1fr) !important; }
-          .status-tab-bar  {
-            border-radius: 0.75rem;
-            border: 1px solid var(--color-border);
-            margin-bottom: 1rem;
-          }
+          .mobile-status-tabs { display: none !important; }
+          .mobile-cards        { display: none !important; }
+          .mobile-fab          { display: none !important; }
+          .stats-grid          { grid-template-columns: repeat(5, 1fr) !important; }
         }
-
+        @media (max-width: 768px) {
+          .desktop-kanban  { display: none !important; }
+          .stats-grid      { grid-template-columns: repeat(2, 1fr) !important; }
+        }
         .kanban-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
         @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
         @keyframes fadeIn  { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }

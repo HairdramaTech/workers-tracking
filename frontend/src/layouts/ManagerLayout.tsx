@@ -106,7 +106,7 @@ export default function ManagerLayout() {
 
       {/* ── Mobile bottom nav ──────────────────────────────────────── */}
       <nav className="mobile-nav" style={{
-        display: 'flex', borderTop: '1px solid var(--color-border)',
+        borderTop: '1px solid var(--color-border)',
         background: 'var(--color-bg-secondary)', position: 'sticky', bottom: 0, zIndex: 30,
       }}>
         {NAV.map(({ to, label, icon: Icon, exact }) => {
