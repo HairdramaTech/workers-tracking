@@ -1,0 +1,401 @@
+/* ============================================
+   DEFAULT: DARK MODE
+   ============================================ */
+:root,
+html.dark {
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-tertiary: rgba(30, 41, 59, 0.7);
+  
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  --color-brand-primary: #3b82f6;
+  --color-brand-hover: #2563eb;
+  --color-brand-active: #1d4ed8;
+  
+  --color-success: #10b981;
+  --color-success-dim: rgba(16, 185, 129, 0.2);
+  --color-warning: #f59e0b;
+  --color-warning-dim: rgba(245, 158, 11, 0.2);
+  --color-danger: #ef4444;
+
+  --color-border: #334155;
+  --color-border-light: rgba(255, 255, 255, 0.1);
+
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 15px rgba(59, 130, 246, 0.5);
+  
+  --border-radius-sm: 0.375rem;
+  --border-radius-md: 0.5rem;
+  --border-radius-lg: 1rem;
+  --border-radius-full: 9999px;
+  
+  --transition-fast: 0.15s ease-in-out;
+  --transition-normal: 0.3s ease-in-out;
+}
+
+/* ============================================
+   LIGHT MODE
+   ============================================ */
+html.light {
+  --color-bg-primary: #f1f5f9;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: rgba(241, 245, 249, 0.9);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  --color-brand-primary: #2563eb;
+  --color-brand-hover: #1d4ed8;
+  --color-brand-active: #1e40af;
+
+  --color-success: #059669;
+  --color-success-dim: rgba(5, 150, 105, 0.15);
+  --color-warning: #d97706;
+  --color-warning-dim: rgba(217, 119, 6, 0.15);
+  --color-danger: #dc2626;
+
+  --color-border: #e2e8f0;
+  --color-border-light: rgba(0, 0, 0, 0.08);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 15px rgba(37, 99, 235, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Typography Utility Classes */
+h1 { font-size: 2rem; font-weight: 700; margin-bottom: 1rem; }
+h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.75rem; }
+h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+p { margin-bottom: 1rem; color: var(--color-text-secondary); }
+
+/* Layout Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 0.5rem; }
+.gap-4 { gap: 1rem; }
+.mt-4 { margin-top: 1rem; }
+.mb-4 { margin-bottom: 1rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+
+/* Premium Components */
+
+/* Glassmorphic Card */
+.card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--border-radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  gap: 0.5rem;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background-color: var(--color-brand-primary);
+  color: white;
+  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-brand-hover);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.23);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  background-color: var(--color-brand-active);
+  transform: translateY(0);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
+}
+
+/* Inputs */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.input-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Status Dots */
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-green { background-color: var(--color-success); box-shadow: 0 0 8px var(--color-success); }
+.status-amber { background-color: var(--color-warning); box-shadow: 0 0 8px var(--color-warning); }
+.status-red { background-color: var(--color-danger); box-shadow: 0 0 8px var(--color-danger); }
+
+/* Giant Check-in Button */
+.btn-giant {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 2rem auto;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-giant.check-in {
+  background: linear-gradient(135deg, var(--color-brand-primary), #6366f1);
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.1);
+}
+
+.btn-giant.check-in:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.5), 0 8px 10px -6px rgba(59, 130, 246, 0.1);
+}
+
+.btn-giant.check-in:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn-giant.check-out {
+  background: linear-gradient(135deg, #ef4444, #f43f5e);
+  box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.5), 0 8px 10px -6px rgba(239, 68, 68, 0.1);
+}
+
+.btn-giant.check-out:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 20px 25px -5px rgba(239, 68, 68, 0.5), 0 8px 10px -6px rgba(239, 68, 68, 0.1);
+}
+
+.btn-giant.check-out:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn-giant:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  filter: grayscale(0.8);
+}
+
+/* Tabs */
+.tabs-container {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  padding: 1rem 1.5rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+}
+
+.tab.active {
+  color: var(--color-brand-primary);
+  border-bottom-color: var(--color-brand-primary);
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s infinite ease-in-out;
+}
+
+/* App Container (Mobile First Layout) */
+.app-container {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Responsive Nav ────────────────────────────────────── */
+.desktop-nav     { display: flex; }
+.mobile-nav      { display: none; }
+.desktop-actions { display: flex; }
+
+/* ── Select ───────────────────────────────────────────── */
+select.input-field option {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+/* ── Spinner ──────────────────────────────────────────── */
+.spinner {
+  width: 2rem; height: 2rem;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-brand-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Mobile breakpoint ────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Layout */
+  .desktop-nav     { display: none !important; }
+  .mobile-nav      { display: flex !important; }
+  .desktop-actions { display: none !important; }
+
+  /* App container — full width on small screens */
+  .app-container {
+    max-width: 100%;
+  }
+
+  /* Manager main content padding */
+  .manager-main {
+    padding: 1rem !important;
+  }
+
+  /* Cards */
+  .card {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+  .card:hover {
+    transform: none; /* disable card lift on touch */
+  }
+
+  /* Buttons */
+  .btn {
+    font-size: 0.9rem;
+  }
+
+  /* Giant button — smaller on mobile */
+  .btn-giant {
+    width: 160px;
+    height: 160px;
+    font-size: 1.25rem;
+  }
+
+  /* Headings */
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+}
+
+@media (max-width: 480px) {
+  .btn-giant {
+    width: 140px;
+    height: 140px;
+    font-size: 1.1rem;
+  }
+}
+
+
