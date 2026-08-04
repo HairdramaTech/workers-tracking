@@ -71,19 +71,20 @@ export default function SecurityDashboard() {
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  // ── Redirect to login if not authed ─────────────────────────────────────────
-  const { isLoggedIn } = useSecurityAuth();
+  // ── Redirect to login if not authed (wait for session hydration first) ────────
+  const { isLoggedIn, sessionChecked } = useSecurityAuth();
   useEffect(() => {
-    if (!isLoggedIn) navigate('/security/login', { replace: true });
-  }, [isLoggedIn, navigate]);
+    if (sessionChecked && !isLoggedIn) navigate('/security/login', { replace: true });
+  }, [isLoggedIn, sessionChecked, navigate]);
 
-  // ── Fetch today's gate entries ───────────────────────────────────────────────
+  // ── Fetch today's gate entries (only workers still clocked IN) ───────────────
   const fetchToday = useCallback(async () => {
     setGateLoading(true);
     const { data } = await supabase
       .from('attendance')
       .select('*, workers(id, name, phone)')
       .eq('date', today)
+      .is('check_out_time', null)       // only active/clocked-in workers
       .order('check_in_time', { ascending: true });
     setTodayRecords((data ?? []) as AttendanceRecord[]);
     setGateLoading(false);
@@ -112,8 +113,7 @@ export default function SecurityDashboard() {
     let query = supabase
       .from('attendance')
       .select('*, workers(id, name, phone)', { count: 'exact' })
-      .neq('date', today)
-      .order('date', { ascending: false })
+      .not('check_out_time', 'is', null)  // all records that have been clocked out (any date)
       .order('check_in_time', { ascending: false });
 
     if (workerFilter) query = query.in('worker_id', workerFilter);

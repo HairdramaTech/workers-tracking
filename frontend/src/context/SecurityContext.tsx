@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 interface SecurityContextType {
   isLoggedIn: boolean;
+  sessionChecked: boolean;           // ← NEW: true once session hydration is done
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -11,19 +12,22 @@ interface SecurityContextType {
 const SecurityContext = createContext<SecurityContextType | null>(null);
 
 export function SecurityProvider({ children }: { children: ReactNode }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn,     setIsLoggedIn]     = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false); // wait for hydration
 
-  // On mount, check if there's already an active security session
   useEffect(() => {
+    // 1. Restore existing session on page load/refresh
     supabase.auth.getSession().then(({ data: { session } }) => {
       const role = session?.user?.user_metadata?.role;
       setIsLoggedIn(role === 'security');
+      setSessionChecked(true);          // ← mark done regardless of result
     });
 
-    // Listen for auth state changes
+    // 2. Stay in sync with auth state changes (login / logout / token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const role = session?.user?.user_metadata?.role;
       setIsLoggedIn(role === 'security');
+      setSessionChecked(true);
     });
 
     return () => subscription.unsubscribe();
@@ -34,12 +38,11 @@ export function SecurityProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        return { ok: false, error: 'Invalid email/password, or email not confirmed. Run the SQL fix in Supabase Dashboard.' };
+        return { ok: false, error: 'Invalid email/password, or email not confirmed. Run the SQL fix in Supabase.' };
       }
       return { ok: false, error: error.message };
     }
 
-    // Ensure only security-role users can log in here
     const role = data.user?.user_metadata?.role;
     if (role !== 'security') {
       await supabase.auth.signOut();
@@ -56,7 +59,7 @@ export function SecurityProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SecurityContext.Provider value={{ isLoggedIn, login, logout }}>
+    <SecurityContext.Provider value={{ isLoggedIn, sessionChecked, login, logout }}>
       {children}
     </SecurityContext.Provider>
   );
