@@ -10,7 +10,7 @@ interface Worker {
 
 interface AuthContextType {
   worker: Worker | null;
-  login: (phone: string, name?: string) => Promise<boolean>;
+  login: (phone: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -22,52 +22,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check local storage for existing session on load
-    const storedWorker = localStorage.getItem('worker_session');
-    if (storedWorker) {
-      setWorker(JSON.parse(storedWorker));
-    }
+    const stored = localStorage.getItem('worker_session');
+    if (stored) setWorker(JSON.parse(stored));
     setIsLoading(false);
   }, []);
 
-  const login = async (phone: string, name?: string) => {
+  const login = async (phone: string): Promise<{ ok: boolean; error?: string }> => {
     setIsLoading(true);
     try {
-      // 1. Check if worker already exists by phone
-      const { data: existingWorker } = await supabase
+      const { data, error } = await supabase
         .from('workers')
-        .select('*')
+        .select('id, name, phone')
         .eq('phone', phone)
         .single();
 
-      if (existingWorker) {
-        // Returning worker — log them in (ignore the name they typed, their profile is already set)
-        setWorker(existingWorker);
-        localStorage.setItem('worker_session', JSON.stringify(existingWorker));
-        return true;
+      if (error || !data) {
+        return { ok: false, error: 'Phone number not registered. Please ask your manager to add you.' };
       }
 
-      // 2. New worker — register using the provided name
-      if (name) {
-        const { data: newWorker, error: insertError } = await supabase
-          .from('workers')
-          .insert([{ phone, name }])
-          .select()
-          .single();
-
-        if (newWorker) {
-          setWorker(newWorker);
-          localStorage.setItem('worker_session', JSON.stringify(newWorker));
-          return true;
-        }
-
-        console.error('Insert error:', insertError);
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
+      setWorker(data);
+      localStorage.setItem('worker_session', JSON.stringify(data));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Something went wrong. Please try again.' };
     } finally {
       setIsLoading(false);
     }
@@ -87,8 +64,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
