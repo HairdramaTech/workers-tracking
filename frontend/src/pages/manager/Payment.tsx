@@ -32,7 +32,7 @@ export default function Payment() {
     const { data } = await supabase
       .from('attendance')
       .select('id, date, wage_for_day, payment_status, workers(id, name, phone)')
-      .eq('payment_status', tab)
+      .eq('payment_status', tab === 'completed' ? 'paid' : 'pending')
       .not('check_out_time', 'is', null) // Only show records that have been clocked out
       .order('date', { ascending: tab === 'pending' }); // Ascending for pending, maybe descending for completed? Let's use ascending for both for consistency, or asc for pending, desc for completed.
     
