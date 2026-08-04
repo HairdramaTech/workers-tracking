@@ -135,7 +135,24 @@ export default function SecurityDashboard() {
 
   // ── Clock out ────────────────────────────────────────────────────────────────
   const handleClockOut = async (id: string) => {
-    await supabase.from('attendance').update({ check_out_time: new Date().toISOString() }).eq('id', id);
+    const record = todayRecords.find(r => r.id === id);
+    if (!record) return;
+
+    const checkOut = new Date();
+    const checkIn = new Date(record.check_in_time);
+    const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+
+    let wage: number | null = null;
+    if (hours >= 8) {
+      const overtime = Math.floor(hours - 8);
+      wage = 500 + (overtime * 100);
+    }
+
+    await supabase.from('attendance').update({ 
+      check_out_time: checkOut.toISOString(),
+      wage_for_day: wage
+    }).eq('id', id);
+    
     fetchToday();
   };
 
@@ -177,10 +194,28 @@ export default function SecurityDashboard() {
     if (editCheckOut && new Date(editCheckOut) <= new Date(editCheckIn)) {
       setEditError('Clock-out must be after clock-in.'); return;
     }
-    await supabase.from('attendance').update({
-      check_in_time: new Date(editCheckIn).toISOString(),
-      check_out_time: editCheckOut ? new Date(editCheckOut).toISOString() : null,
-    }).eq('id', id);
+
+    const checkIn = new Date(editCheckIn);
+    const checkOut = editCheckOut ? new Date(editCheckOut) : null;
+    
+    let wage: number | null = null;
+    if (checkOut) {
+      const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+      if (hours >= 8) {
+        const overtime = Math.floor(hours - 8);
+        wage = 500 + (overtime * 100);
+      }
+    }
+
+    const updateData: any = {
+      check_in_time: checkIn.toISOString(),
+      check_out_time: checkOut ? checkOut.toISOString() : null,
+    };
+    if (checkOut) {
+      updateData.wage_for_day = wage;
+    }
+
+    await supabase.from('attendance').update(updateData).eq('id', id);
     setEditingId(null);
     fetchHistory();
   };

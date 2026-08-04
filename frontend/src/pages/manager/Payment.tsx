@@ -22,6 +22,7 @@ export default function Payment() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [customWages, setCustomWages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchData();
@@ -42,14 +43,28 @@ export default function Payment() {
 
   const markAsPaid = async (id: string) => {
     setUpdating(id);
-    await supabase.from('attendance').update({ payment_status: 'paid' }).eq('id', id);
+    const record = records.find(r => r.id === id);
+    const wageInput = customWages[id];
+    const finalWage = wageInput !== undefined ? parseFloat(wageInput) : (record?.wage_for_day || 0);
+
+    await supabase.from('attendance').update({ 
+      payment_status: 'paid',
+      wage_for_day: finalWage
+    }).eq('id', id);
+    
     setUpdating(null);
     fetchData(); // Refresh the list
   };
 
   const markAllPaidForDate = async (_date: string, recordsForDate: AttendanceRecord[]) => {
-    const ids = recordsForDate.map(r => r.id);
-    await supabase.from('attendance').update({ payment_status: 'paid' }).in('id', ids);
+    setUpdating(`all-${_date}`);
+    const promises = recordsForDate.map(r => {
+      const wageInput = customWages[r.id];
+      const finalWage = wageInput !== undefined ? parseFloat(wageInput) : (r.wage_for_day || 0);
+      return supabase.from('attendance').update({ payment_status: 'paid', wage_for_day: finalWage }).eq('id', r.id);
+    });
+    await Promise.all(promises);
+    setUpdating(null);
     fetchData();
   };
 
@@ -98,7 +113,11 @@ export default function Payment() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {sortedDates.map(date => {
               const dayRecords = groupedRecords[date];
-              const totalAmount = dayRecords.reduce((sum, r) => sum + (r.wage_for_day || 0), 0);
+              const totalAmount = dayRecords.reduce((sum, r) => {
+                const wageInput = customWages[r.id];
+                const finalWage = wageInput !== undefined ? parseFloat(wageInput) || 0 : (r.wage_for_day || 0);
+                return sum + finalWage;
+              }, 0);
               
               return (
                 <div key={date} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -129,8 +148,9 @@ export default function Payment() {
                           className="btn btn-outline" 
                           style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
                           onClick={() => markAllPaidForDate(date, dayRecords)}
+                          disabled={updating === `all-${date}`}
                         >
-                          <Check size={14} /> Pay All
+                          <Check size={14} /> {updating === `all-${date}` ? '...' : 'Pay All'}
                         </button>
                       )}
                     </div>
@@ -149,7 +169,21 @@ export default function Payment() {
                         </div>
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>₹{r.wage_for_day || 0}</span>
+                          {tab === 'pending' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>₹</span>
+                              <input 
+                                type="number" 
+                                className="input-field"
+                                style={{ width: '80px', padding: '0.4rem', margin: 0, fontSize: '0.9rem' }}
+                                placeholder="0"
+                                value={customWages[r.id] !== undefined ? customWages[r.id] : (r.wage_for_day === null ? '' : r.wage_for_day)}
+                                onChange={(e) => setCustomWages(prev => ({ ...prev, [r.id]: e.target.value }))}
+                              />
+                            </div>
+                          ) : (
+                            <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>₹{r.wage_for_day || 0}</span>
+                          )}
                           
                           {tab === 'pending' ? (
                             <button 
