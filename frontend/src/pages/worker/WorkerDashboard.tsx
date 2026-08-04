@@ -137,7 +137,7 @@ export default function WorkerDashboard() {
   };
 
   // Assignment actions
-  const updateDoneQty = async (id: string, current: number, assigned: number, newVal: number) => {
+  const updateDoneQty = async (id: string, _current: number, assigned: number, newVal: number) => {
     const clamped = Math.min(Math.max(0, newVal), assigned);
     const newStatus = clamped === 0 ? 'pending' : 'in_progress';
     await supabase.from('work_assignments').update({ done_quantity: clamped, status: newStatus }).eq('id', id);

@@ -70,6 +70,7 @@ export default function ManagerDashboard() {
 
       const { data: tasksData } = await supabase
         .from('tasks')
+        .select('*')
         .eq('date', today);
       
       if (attendanceData) {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ArrowRight, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowRight, Lock, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ManagerLogin() {

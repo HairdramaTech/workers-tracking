@@ -37,7 +37,7 @@ export default function ManagerSettings() {
       navigator.geolocation.getCurrentPosition((pos) => {
         setLat(pos.coords.latitude);
         setLng(pos.coords.longitude);
-      }, (err) => {
+      }, (_err) => {
         alert("Could not fetch location. Please ensure location permissions are granted.");
       });
     } else {
