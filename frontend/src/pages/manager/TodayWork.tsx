@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, X, ChevronDown, Check, AlertCircle, RefreshCw, Search, Briefcase } from 'lucide-react';
+import { Plus, X, ChevronDown, Check, AlertCircle, RefreshCw, Search, Briefcase, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -199,6 +199,19 @@ export default function TodayWork() {
 
   const rejectAssignment = async (id: string) => {
     await supabase.from('work_assignments').update({ status: 'in_progress', submitted_at: null }).eq('id', id);
+    setSelected(null); fetchAll();
+  };
+
+  const saveQty = async (id: string, qty: number, assigned: number) => {
+    const clamped = Math.min(Math.max(0, qty), assigned);
+    const newStatus = clamped === assigned ? 'under_review' : clamped === 0 ? 'pending' : 'in_progress';
+    await supabase.from('work_assignments').update({ done_quantity: clamped, status: newStatus }).eq('id', id);
+    setSelected(prev => prev ? { ...prev, done_quantity: clamped, status: newStatus as Status } : prev);
+    fetchAll();
+  };
+
+  const deleteAssignment = async (id: string) => {
+    await supabase.from('work_assignments').delete().eq('id', id);
     setSelected(null); fetchAll();
   };
 
@@ -422,6 +435,8 @@ export default function TodayWork() {
         <DetailPanel
           assignment={selected} onClose={() => setSelected(null)}
           onApprove={approveAssignment} onReject={rejectAssignment}
+          onSaveQty={saveQty}
+          onDelete={deleteAssignment}
           onAssignMore={() => {
             const alreadyAssigned = assignments.filter(a => a.work_order_id === selected.work_order_id).reduce((s, a) => s + a.assigned_quantity, 0);
             setShowAssign({ id: selected.work_order_id, total_qty: selected.work_orders?.total_quantity ?? 0, already_assigned: alreadyAssigned });
@@ -686,17 +701,34 @@ function KanbanCard({ assignment: a, colColor, onClick, isSelected }: {
 }
 
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
-function DetailPanel({ assignment: a, onClose, onApprove, onReject, onAssignMore }: {
+function DetailPanel({ assignment: a, onClose, onApprove, onReject, onAssignMore, onSaveQty, onDelete }: {
   assignment: Assignment; onClose: () => void;
-  onApprove: (id: string) => void; onReject: (id: string) => void; onAssignMore: () => void;
+  onApprove: (id: string) => void;
+  onReject:  (id: string) => void;
+  onAssignMore: () => void;
+  onSaveQty: (id: string, qty: number, assigned: number) => Promise<void>;
+  onDelete: (id: string) => void;
 }) {
+  const [qtyInput, setQtyInput]       = useState(String(a.done_quantity));
+  const [savingQty, setSavingQty]     = useState(false);
+  const [confirmDel, setConfirmDel]   = useState(false);
+
+  // Sync if parent updates the assignment (e.g. after save)
+  useEffect(() => { setQtyInput(String(a.done_quantity)); }, [a.done_quantity]);
+
   const pct = a.assigned_quantity > 0 ? Math.round((a.done_quantity / a.assigned_quantity) * 100) : 0;
   const statusColor: Record<Status, string> = { pending:'#f59e0b', in_progress:'#3b82f6', under_review:'#8b5cf6', completed:'#10b981' };
   const sc = statusColor[a.status];
 
+  const handleSave = async () => {
+    setSavingQty(true);
+    await onSaveQty(a.id, parseInt(qtyInput) || 0, a.assigned_quantity);
+    setSavingQty(false);
+  };
+
   return (
     <>
-      {/* Backdrop on mobile */}
+      {/* Backdrop */}
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 49 }} className="panel-backdrop" />
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(340px, 100vw)',
@@ -704,14 +736,42 @@ function DetailPanel({ assignment: a, onClose, onApprove, onReject, onAssignMore
         zIndex: 50, overflowY: 'auto', padding: '1.25rem',
         boxShadow: '-8px 0 32px rgba(0,0,0,0.2)', animation: 'slideIn 0.2s ease',
       }}>
+
+        {/* ── Top bar: label + edit/delete/close ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <p style={{ margin: 0, fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Task Detail</p>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '0.2rem', display: 'flex' }}>
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            {/* Edit — opens inline qty editor (already always visible below) */}
+            <button
+              title="Edit quantity"
+              onClick={() => { const el = document.getElementById('qty-input-panel'); el?.focus(); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.3rem', display: 'flex', borderRadius: '0.35rem' }}
+            >
+              <Edit2 size={15} />
+            </button>
+            {/* Delete */}
+            {confirmDel ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <button onClick={() => onDelete(a.id)} style={{ background: 'var(--color-danger)', color: 'white', border: 'none', borderRadius: '0.35rem', padding: '0.2rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Confirm</button>
+                <button onClick={() => setConfirmDel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.2rem', display: 'flex' }}><X size={14} /></button>
+              </div>
+            ) : (
+              <button
+                title="Delete assignment"
+                onClick={() => setConfirmDel(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '0.3rem', display: 'flex', borderRadius: '0.35rem' }}
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '0.3rem', display: 'flex' }}>
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem', color: 'var(--color-text-primary)' }}>
+        {/* ── Title + status badges ── */}
+        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem', color: 'var(--color-text-primary)', fontWeight: 700 }}>
           {a.work_orders?.work_types?.name}
         </h3>
         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
@@ -725,24 +785,25 @@ function DetailPanel({ assignment: a, onClose, onApprove, onReject, onAssignMore
           </span>
         </div>
 
-        {[
-          ['Assigned To', a.workers?.name],
-          ['Work Type', a.work_orders?.work_types?.name],
-          ['Date', a.work_orders?.date ? format(new Date(a.work_orders.date), 'MMM do, yyyy') : '—'],
-          ['Total Order', `${a.work_orders?.total_quantity ?? '—'} units`],
-          ['Assigned', `${a.assigned_quantity} units`],
-          ['Done', `${a.done_quantity} units`],
-        ].map(([label, value]) => (
-          <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.45rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.825rem' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>{label}</span>
-            <span style={{ color: 'var(--color-text-primary)' }}>{value}</span>
+        {/* ── Info rows ── */}
+        {([
+          ['ASSIGNED TO', a.workers?.name],
+          ['WORK TYPE',   a.work_orders?.work_types?.name],
+          ['DATE',        a.work_orders?.date ? format(new Date(a.work_orders.date), 'MMM do, yyyy') : '—'],
+          ['TOTAL ORDER', `${a.work_orders?.total_quantity ?? '—'} units`],
+          ['ASSIGNED',    `${a.assigned_quantity} units`],
+          ['ACTUAL DONE', `${a.done_quantity} units`],
+        ] as [string, string | undefined][]).map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.8rem' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontWeight: 700, fontSize: '0.68rem', letterSpacing: '0.06em' }}>{label}</span>
+            <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{value}</span>
           </div>
         ))}
 
-        {/* Progress */}
+        {/* ── Progress bar ── */}
         <div style={{ margin: '1rem 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>PROGRESS</p>
+            <p style={{ margin: 0, fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '0.06em' }}>PROGRESS</p>
             <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: sc }}>{pct}%</p>
           </div>
           <div style={{ height: '8px', background: 'var(--color-border)', borderRadius: '100px' }}>
@@ -750,13 +811,54 @@ function DetailPanel({ assignment: a, onClose, onApprove, onReject, onAssignMore
           </div>
         </div>
 
+        {/* ── Log Completed Quantity (inspired by reference UI) ── */}
+        {a.status !== 'completed' && (
+          <div style={{ marginBottom: '1.25rem' }}>
+            <p style={{ margin: '0 0 0.625rem', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>
+              LOG COMPLETED QUANTITY
+            </p>
+            <input
+              id="qty-input-panel"
+              type="number"
+              min={0}
+              max={a.assigned_quantity}
+              value={qtyInput}
+              onChange={e => setQtyInput(e.target.value)}
+              style={{
+                width: '100%', padding: '0.7rem 0.875rem',
+                background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
+                borderRadius: '0.625rem', color: 'var(--color-text-primary)',
+                fontSize: '1rem', fontWeight: 600, outline: 'none', boxSizing: 'border-box',
+                marginBottom: '0.625rem',
+              }}
+              onFocus={e => (e.target.style.borderColor = 'var(--color-brand-primary)')}
+              onBlur={e => (e.target.style.borderColor = 'var(--color-border)')}
+            />
+            <button
+              className="btn btn-primary"
+              style={{
+                width: '100%', justifyContent: 'center',
+                background: 'linear-gradient(135deg, var(--color-brand-primary), #6366f1)',
+                boxShadow: '0 4px 14px rgba(59,130,246,0.4)',
+                fontSize: '0.9rem', padding: '0.7rem',
+                opacity: savingQty || qtyInput === String(a.done_quantity) ? 0.6 : 1,
+              }}
+              onClick={handleSave}
+              disabled={savingQty || qtyInput === String(a.done_quantity)}
+            >
+              {savingQty ? 'Saving…' : 'Save Quantity'}
+            </button>
+          </div>
+        )}
+
+        {/* ── Actions ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
           <button className="btn btn-outline" style={{ fontSize: '0.875rem' }} onClick={onAssignMore}>
             + Assign Another Worker
           </button>
           {a.status === 'under_review' && (
             <>
-              <button className="btn btn-primary" style={{ background: '#10b981' }} onClick={() => onApprove(a.id)}>
+              <button className="btn btn-primary" style={{ background: '#10b981', justifyContent: 'center' }} onClick={() => onApprove(a.id)}>
                 <Check size={16} /> Approve & Complete
               </button>
               <button className="btn btn-outline" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }} onClick={() => onReject(a.id)}>
