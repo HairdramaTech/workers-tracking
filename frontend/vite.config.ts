@@ -30,5 +30,5 @@ export default defineConfig({
       }
     })
   ],
-  envDir: '../backend'
+  envDir: '.'
 })
