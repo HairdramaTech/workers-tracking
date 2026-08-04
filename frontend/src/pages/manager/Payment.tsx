@@ -10,6 +10,8 @@ interface AttendanceRecord {
   date: string;
   wage_for_day: number;
   payment_status: 'pending' | 'paid';
+  check_in_time: string;
+  check_out_time: string;
   workers: {
     id: string;
     name: string;
@@ -32,11 +34,11 @@ export default function Payment() {
     setLoading(true);
     const { data } = await supabase
       .from('attendance')
-      .select('id, date, wage_for_day, payment_status, workers(id, name, phone)')
+      .select('id, date, wage_for_day, payment_status, check_in_time, check_out_time, workers(id, name, phone)')
       .eq('payment_status', tab === 'completed' ? 'paid' : 'pending')
       .not('check_out_time', 'is', null) // Only show records that have been clocked out
       .order('date', { ascending: tab === 'pending' }); // Ascending for pending, maybe descending for completed? Let's use ascending for both for consistency, or asc for pending, desc for completed.
-    
+
     setRecords((data as unknown) as AttendanceRecord[]);
     setLoading(false);
   };
@@ -47,11 +49,11 @@ export default function Payment() {
     const wageInput = customWages[id];
     const finalWage = wageInput !== undefined ? parseFloat(wageInput) : (record?.wage_for_day || 0);
 
-    await supabase.from('attendance').update({ 
+    await supabase.from('attendance').update({
       payment_status: 'paid',
       wage_for_day: finalWage
     }).eq('id', id);
-    
+
     setUpdating(null);
     fetchData(); // Refresh the list
   };
@@ -118,11 +120,11 @@ export default function Payment() {
                 const finalWage = wageInput !== undefined ? parseFloat(wageInput) || 0 : (r.wage_for_day || 0);
                 return sum + finalWage;
               }, 0);
-              
+
               return (
                 <div key={date} className="card" style={{ padding: 0, overflow: 'hidden' }}>
                   {/* Date Header */}
-                  <div style={{ 
+                  <div style={{
                     background: 'var(--color-bg-tertiary)', padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem'
                   }}>
@@ -135,7 +137,7 @@ export default function Payment() {
                         <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{dayRecords.length} worker{dayRecords.length > 1 ? 's' : ''}</p>
                       </div>
                     </div>
-                    
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <div style={{ textAlign: 'right' }}>
                         <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>TOTAL DUE</p>
@@ -144,8 +146,8 @@ export default function Payment() {
                         </p>
                       </div>
                       {tab === 'pending' && (
-                        <button 
-                          className="btn btn-outline" 
+                        <button
+                          className="btn btn-outline"
                           style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
                           onClick={() => markAllPaidForDate(date, dayRecords)}
                           disabled={updating === `all-${date}`}
@@ -158,22 +160,34 @@ export default function Payment() {
 
                   {/* Worker Rows */}
                   <div>
-                    {dayRecords.map((r, idx) => (
-                      <div key={r.id} style={{ 
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                    {dayRecords.map((r, idx) => {
+                      let hoursDisplay = '';
+                      if (r.check_in_time && r.check_out_time) {
+                        const h = (new Date(r.check_out_time).getTime() - new Date(r.check_in_time).getTime()) / 3600000;
+                        const fullHours = Math.floor(h);
+                        const mins = Math.floor((h - fullHours) * 60);
+                        hoursDisplay = `${fullHours}h ${mins}m`;
+                      }
+
+                      return (
+                      <div key={r.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         padding: '1rem 1.25rem', borderBottom: idx < dayRecords.length - 1 ? '1px solid var(--color-border)' : 'none'
                       }}>
                         <div>
                           <p style={{ margin: 0, fontWeight: 700, color: 'var(--color-text-primary)' }}>{r.workers?.name}</p>
-                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{r.workers?.phone}</p>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {r.workers?.phone}
+                            {hoursDisplay && <span style={{ color: 'var(--color-brand-primary)', fontWeight: 600, background: 'rgba(59, 130, 246, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem' }}>{hoursDisplay}</span>}
+                          </p>
                         </div>
-                        
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           {tab === 'pending' ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                               <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>₹</span>
-                              <input 
-                                type="number" 
+                              <input
+                                type="number"
                                 className="input-field"
                                 style={{ width: '80px', padding: '0.4rem', margin: 0, fontSize: '0.9rem' }}
                                 placeholder="0"
@@ -184,9 +198,9 @@ export default function Payment() {
                           ) : (
                             <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>₹{r.wage_for_day || 0}</span>
                           )}
-                          
+
                           {tab === 'pending' ? (
-                            <button 
+                            <button
                               className="btn btn-primary"
                               style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', background: '#10b981', boxShadow: 'none' }}
                               onClick={() => markAsPaid(r.id)}
@@ -201,7 +215,7 @@ export default function Payment() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
               );
